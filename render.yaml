@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: neon-giveaway-bot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: MAIN_CHANNEL
+        value: "@developer_asliddin"
+      - key: MAIN_CHANNEL_URL
+        value: "https://t.me/developer_asliddin"
+      - key: PYTHON_VERSION
+        value: 3.11.9

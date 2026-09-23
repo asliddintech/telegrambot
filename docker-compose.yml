@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  neon_bot:
+    build: .
+    container_name: neon_giveaway_bot
+    restart: always
+    volumes:
+      - ./bot.db:/app/bot.db
+      - ./.env:/app/.env
+    environment:
+      - PYTHONUNBUFFERED=1
