@@ -59,8 +59,12 @@ class Database:
             """)
             await db.commit()
 
-    async def add_user(self, user_id: int, full_name: str, username: Optional[str]):
+    async def add_user(self, user_id: int, full_name: str, username: Optional[str]) -> bool:
+        """Foydalanuvchini bazaga qo'shadi. Yangi bo'lsa True, mavjud bo'lsa False qaytaradi."""
         async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,)) as cursor:
+                exists = await cursor.fetchone() is not None
+
             await db.execute("""
                 INSERT INTO users (user_id, full_name, username)
                 VALUES (?, ?, ?)
@@ -69,6 +73,7 @@ class Database:
                     username = excluded.username
             """, (user_id, full_name, username))
             await db.commit()
+            return not exists
 
     async def create_contest(self, creator_id: int, title: str, description: str,
                              required_channel: Optional[str], target_count: int) -> int:

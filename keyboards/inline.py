@@ -22,6 +22,29 @@ def creator_sub_check_keyboard() -> InlineKeyboardMarkup:
         ]
     )
 
+def welcome_inline_keyboard() -> InlineKeyboardMarkup:
+    """Yangi foydalanuvchi uchun xush kelibsiz inline tugmalari"""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📢 Homiy kanal: Developer Asliddin",
+                    url=MAIN_CHANNEL_URL
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="⚡️ Yangi Konkurs ochish",
+                    callback_data="start_create_contest_inline"
+                ),
+                InlineKeyboardButton(
+                    text="🎰 Random Baraban",
+                    callback_data="start_custom_wheel_inline"
+                )
+            ]
+        ]
+    )
+
 def contest_join_keyboard(contest_id: int, required_channel: Optional[str]) -> InlineKeyboardMarkup:
     """Konkursda ishtirok etish va obuna tugmalari"""
     buttons = []

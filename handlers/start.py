@@ -7,8 +7,9 @@ from aiogram.fsm.context import FSMContext
 
 from database.db import db
 from config import MAIN_CHANNEL, MAIN_CHANNEL_URL
-from keyboards.reply import main_menu_keyboard
-from keyboards.inline import contest_join_keyboard
+from keyboards.reply import main_menu_keyboard, cancel_keyboard
+from keyboards.inline import contest_join_keyboard, welcome_inline_keyboard, creator_sub_check_keyboard
+from states.states import CustomWheel
 from utils.neon_ui import format_contest_card, neon_banner
 from utils.checker import check_subscription, clean_channel_username
 
@@ -19,7 +20,7 @@ router = Router()
 async def cmd_start(message: Message, command: CommandObject, bot: Bot, state: FSMContext):
     await state.clear()
     user = message.from_user
-    await db.add_user(user.id, user.full_name, user.username)
+    is_new_user = await db.add_user(user.id, user.full_name, user.username)
 
     bot_info = await bot.get_me()
     args = command.args
@@ -84,30 +85,54 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot, state: F
         except ValueError:
             pass
 
-    # Oddiy /start xabari - Neon Style
+    # Yangi va mavjud foydalanuvchilar uchun Neon uslubidagi to'liq ma'lumot
+    greeting_title = "✨ XUSH KELIBSIZ!" if is_new_user else "👋 QAYTGANINGIZ BILAN!"
+
     welcome_text = f"""
 ⚡️┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓⚡️
-   🔮 <b>NEON GIVEAWAY BOT</b> 🔮
-   🌌 <i>O'z auditoriyangizni yig'ing!</i>
+   🔮 <b>NEON GIVEAWAY & CONTEST BOT</b> 🔮
+   🌌 <i>Auditoriyangizni tez va oson yig'ing!</i>
 ⚡️┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛⚡️
 
-Salom, <b>{user.full_name}</b>! 💎
+{greeting_title} <b>{user.full_name}</b>! 💎
 
-Ushbu bot orqali siz:
-💠 O'z kanalingiz uchun qiziqarli <b>konkurslar</b> yaratishingiz;
-👥 Ishtirokchilarni <b>kanalingizga obuna</b> qildirishingiz;
-🎰 <b>30 sekundlik hayajonli Neon Baraban</b> orqali 1, 2, 3-o'rin g'oliblarini adolatli aniqlashingiz;
-🎡 Shuningdek, <b>mustaqil Random Baraban</b> yordamida istalgan nomlar o'rtasida g'olibni aniqlashingiz mumkin!
+🤖 <b>BU BOT SIZGA QANDAY YORDAM BERADI?</b>
+Bu bot Telegram kanallaringizga <b>jonli va faol obunachilar</b> to'plash, adolatli konkurslar (giveaway) o'tkazish hamda 30 soniyalik hayajonli baraban orqali g'oliblarni aniqlash uchun yaratilgan.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 <b>ASOSIY IMKONIYaTLAR:</b>
+
+1️⃣ <b>⚡️ Yangi Konkurs yaratish:</b>
+   • O'z kanalingiz uchun unikal konkurs ochasiz;
+   • Sovg'alar va kerakli ishtirokchilar sonini belgilaysiz;
+   • Kanalingizni majburiy obuna sharti sifatida qo'shasiz.
+
+2️⃣ <b>🛡 100% Majburiy Obuna Nazorati:</b>
+   • Ishtirokchilar sizning kanalingizga va homiy kanalga (<a href="{MAIN_CHANNEL_URL}">@developer_asliddin</a>) a'zo bo'lmaguncha konkursda qatnasha olmaydi!
+   • Kanaldan chiqib ketganlar avtomatik ro'yxatdan chetlatiladi.
+
+3️⃣ <b>🎰 30 Sekundlik Hayajonli Baraban:</b>
+   • Ishtirokchilar soni to'lgach, 3 bosqichda 30 soniyadan aylanuvchi vizual animatsiya orqali 🥇 1-o'rin, 🥈 2-o'rin va 🥉 3-o'rin aniqlanadi!
+
+4️⃣ <b>🎡 Mustaqil Random Baraban:</b>
+   • Konkursdan tashqari, istalgan nomlar, do'stlar yoki sovg'alarni yozib, 30 soniyada tasodifiy g'olibni aniqlashingiz mumkin.
+━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📢 <b>Asosiy homiy kanali:</b> <a href="{MAIN_CHANNEL_URL}">Developer Asliddin</a>
 
-<i>Quyidagi menyudan kerakli bo'limni tanlang:</i>
+<i>Quyidagi menyu tugmalaridan birini tanlang va boshlang:</i>
 """
     await message.answer(
         welcome_text.strip(),
         reply_markup=main_menu_keyboard(),
         parse_mode="HTML",
         disable_web_page_preview=True
+    )
+    # Qo'shimcha tezkor inline boshlash tugmalari
+    await message.answer(
+        "⚡️ <b>Tezkor amallar uchun quyidagi tugmalardan ham foydalanishingiz mumkin:</b>",
+        reply_markup=welcome_inline_keyboard(),
+        parse_mode="HTML"
     )
 
 @router.callback_query(F.data.startswith("check_sub_"))
@@ -181,19 +206,73 @@ async def handle_check_subscription(callback: CallbackQuery, bot: Bot):
         except Exception as e:
             logger.warning(f"Konkurs egasiga xabar yuborishda xatolik: {e}")
 
-@router.message(F.text == "ℹ️ Bot haqida")
+@router.callback_query(F.data == "start_create_contest_inline")
+async def cb_start_create_contest_inline(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    text = f"""
+⚡️ <b>KONKURS YARATISH SHARTI</b> ⚡️
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Yangi konkurs yaratish uchun homiy kanalimizga obuna bo'lishingiz shart:
+👉 <a href="{MAIN_CHANNEL_URL}">Developer Asliddin ({MAIN_CHANNEL})</a>
+
+Kanalga a'zo bo'lgach, quyidagi <b>"✅ Obunani tekshirish"</b> tugmasini bosing!
+"""
+    await callback.message.answer(
+        text.strip(),
+        reply_markup=creator_sub_check_keyboard(),
+        parse_mode="HTML",
+        disable_web_page_preview=True
+    )
+    await callback.answer()
+
+@router.callback_query(F.data == "start_custom_wheel_inline")
+async def cb_start_custom_wheel_inline(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(CustomWheel.waiting_for_items)
+    text = """
+🎰 <b>MUSTAQIL NEON RANDOM BARABAN</b> 🎰
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Bu yerda istalgan nomlar, ishtirokchilar yoki sovg'alarni kiritib, <b>30 sekundlik hayajonli baraban</b> yordamida tasodifiy g'olibni aniqlashingiz mumkin!
+
+✍️ <b>Nomlarni yuboring:</b>
+Variantlarni har birini <b>yangi qatorda</b> yoki <b>vergul (,)</b> bilan ajratib yozing.
+
+<i>Masalan:
+Akmal
+Dilshod
+Shohruh
+Zilola
+Bobur</i>
+"""
+    await callback.message.answer(text.strip(), reply_markup=cancel_keyboard(), parse_mode="HTML")
+    await callback.answer()
+
+@router.message(F.text.startswith("ℹ️ Bot haqida"))
 async def cmd_about(message: Message):
     about_text = f"""
-🔮 <b>NEON GIVEAWAY BOT HAQIDA</b> 🔮
+🔮 <b>NEON GIVEAWAY BOT HAQIDA TO'LIQ QO'LLANMA</b> 🔮
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-Ushbu bot Telegram kanallarini tez va samarali rivojlantirish uchun yaratilgan.
+Ushbu bot Telegram kanallarini tez, xavfsiz va samarali rivojlantirish uchun yaratilgan zamonaviy tizimdir.
 
-🚀 <b>Asosiy imkoniyatlar:</b>
-1️⃣ <b>Majburiy a'zolik:</b> Har qanday konkursda qatnashuvchilar avval majburiy kanallarga a'zo bo'ladi.
-2️⃣ <b>Asosiy homiy kanali:</b> <a href="{MAIN_CHANNEL_URL}">@developer_asliddin</a>
-3️⃣ <b>30 soniyali Baraban:</b> G'oliblarni aniqlash vaqtida 30 sekund davomida hayajonli vizual animatsiya bilan 1, 2 va 3-o'rinlar saralanadi!
-4️⃣ <b>Random Baraban:</b> O'zingiz istalgan nomlarni kiritib, tasodifiy g'olibni aniqlashingiz mumkin bo'lgan alohida bo'lim.
+🚀 <b>ASOSIY IMKONIYaTLAR:</b>
 
+1️⃣ <b>⚡️ Konkurs Yaratish:</b>
+   • Konkurs nomi, mukofotlar tavsifi va qatnashuvchilar maqsadini kiriting.
+   • O'z kanalingizni havola qilib qo'shing (botni kanalingizga admin qilish tavsiya etiladi).
+   • Bot sizga tayyor unikal taklif havolasini taqdim etadi.
+
+2️⃣ <b>🛡 A'zolikni Avtomatik Tekshirish:</b>
+   • Har bir ishtirokchi kanallarga to'liq obuna bo'lmaguncha unga ishtirokchi chiptasi berilmaydi.
+   • Agar ishtirokchi konkurs davomida kanaldan chiqib ketsa, bot uni avtomatik chetlatadi va ogohlantiradi.
+
+3️⃣ <b>🎰 30 Sekundlik 3 Bosqichli Baraban:</b>
+   • Maqsadli songa yetgach, konkurs egasi barabanni ishga tushiradi.
+   • Har bir o'rin (🥇 1-o'rin, 🥈 2-o'rin, 🥉 3-o'rin) uchun alohida 30 soniyalik hayajonli neon vizual animatsiya aylanadi va g'oliblar tasodifiy aniqlanadi.
+
+4️⃣ <b>🎡 Mustaqil Random Baraban:</b>
+   • Do'stlaringiz davrasida yoki istalgan ro'yxat bo'yicha g'olibni aniqlash uchun nomlarni yozing va barabanni aylantiring.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+📢 <b>Asosiy Homiy:</b> <a href="{MAIN_CHANNEL_URL}">Developer Asliddin</a>
 👨‍💻 <b>Dasturchi:</b> @developer_asliddin
 """
     await message.answer(about_text, parse_mode="HTML", disable_web_page_preview=True)
